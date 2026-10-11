@@ -3,7 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Neon Scanner</title>
+<link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/11414/11414183.png">
+<link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/11414/11414183.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -54,6 +59,27 @@
   .header {
     text-align: center;
     margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Icon di atas judul */
+  .app-icon {
+    width: 72px;
+    height: 72px;
+    object-fit: contain;
+    filter:
+      drop-shadow(0 0 10px rgba(0, 229, 255, 0.7))
+      drop-shadow(0 0 20px rgba(177, 74, 255, 0.5));
+    animation: iconPulse 3s ease-in-out infinite;
+    margin-bottom: 4px;
+  }
+
+  @keyframes iconPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
   }
 
   .title {
@@ -67,19 +93,22 @@
     background-clip: text;
     animation: shine 4s linear infinite;
     text-transform: uppercase;
+    line-height: 1;
   }
 
   @keyframes shine {
     to { background-position: 300% center; }
   }
 
+  /* Subtitle — lebih terang */
   .subtitle {
     font-size: 13px;
-    color: #6a6a8a;
-    margin-top: 4px;
+    color: #b8b8d8;
+    margin-top: 2px;
     letter-spacing: 2px;
     text-transform: uppercase;
-    font-weight: 500;
+    font-weight: 600;
+    text-shadow: 0 0 8px rgba(184, 184, 216, 0.3);
   }
 
   /* ==== SCANNER FRAME ==== */
@@ -103,9 +132,7 @@
     50% { background-position: 100% 50%; }
   }
 
-  .scanner-wrapper.hidden {
-    display: none;
-  }
+  .scanner-wrapper.hidden { display: none; }
 
   .scanner-inner {
     background: #0a0a14;
@@ -161,13 +188,32 @@
   /* ==== STATUS ==== */
   .status {
     margin-top: 20px;
-    font-size: 15px;
-    color: #8a8ab0;
+    font-size: 16px;
+    color: #c8c8e8;               /* lebih terang dari sebelumnya */
     text-align: center;
-    letter-spacing: 1px;
-    min-height: 20px;
+    letter-spacing: 1.2px;
+    min-height: 22px;
     transition: all 0.3s;
-    font-weight: 500;
+    font-weight: 600;
+    text-shadow: 0 0 8px rgba(200, 200, 232, 0.35);
+  }
+
+  .status.success {
+    font-size: 20px;              /* lebih besar */
+    color: #00ff9d;               /* hijau neon */
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-shadow:
+      0 0 10px rgba(0, 255, 157, 0.9),
+      0 0 25px rgba(0, 255, 157, 0.6),
+      0 0 40px rgba(0, 255, 157, 0.3);
+    animation: successPop 0.4s ease;
+  }
+
+  @keyframes successPop {
+    0% { transform: scale(0.85); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
   }
 
   .loader {
@@ -183,7 +229,7 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ==== HASIL SCAN — FRAME PENUH ==== */
+  /* ==== HASIL SCAN ==== */
   .result-frame {
     display: none;
     width: 100%;
@@ -315,8 +361,9 @@
 <body>
   <div class="container">
     <div class="header">
+      <img src="https://cdn-icons-png.flaticon.com/512/11414/11414183.png" alt="Scanner Icon" class="app-icon">
       <div class="title">Neon Scanner</div>
-      <div class="subtitle">Barcode & QR Code Reader</div>
+      <div class="subtitle">Pembaca BARCODE & QR CODE</div>
     </div>
 
     <!-- FRAME SCANNER -->
@@ -331,7 +378,7 @@
       </div>
     </div>
 
-    <!-- FRAME HASIL (muncul setelah scan) -->
+    <!-- FRAME HASIL -->
     <div class="result-frame" id="resultFrame">
       <div class="result-inner">
         <div class="check-icon">
@@ -364,25 +411,23 @@
     const resultFrame = document.getElementById('resultFrame');
     const resultValue = document.getElementById('resultValue');
 
-    function setStatus(text) {
+    function setStatus(text, isSuccess) {
+      statusEl.className = 'status' + (isSuccess ? ' success' : '');
       statusEl.innerHTML = text;
     }
 
-    // ==== BUNYI BEEP KENCANG (sekali) ====
-    // Dual-tone: 1200Hz → 1800Hz, volume tinggi, tebal
+    // ==== BUNYI BEEP KENCANG ====
     function playBeep() {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         const ctx = new AudioCtx();
-
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
 
-        osc.type = 'square';  // square = lebih kencang & tegas dari sine
+        osc.type = 'square';
         osc.frequency.setValueAtTime(1200, ctx.currentTime);
         osc.frequency.setValueAtTime(1800, ctx.currentTime + 0.06);
 
-        // Volume penuh (0.9) biar kencang
         gain.gain.setValueAtTime(0.0001, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.9, ctx.currentTime + 0.005);
         gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.28);
@@ -397,30 +442,24 @@
       }
     }
 
-    // ==== GETAR KUAT (pola panjang) ====
-    // Hanya jalan di Android. iOS tidak support.
+    // ==== GETAR KUAT ====
     function vibrateStrong() {
       if (navigator.vibrate) {
-        // pola: getar-jeda-getar-jeda-getar panjang
         navigator.vibrate([150, 60, 150, 60, 250]);
       }
     }
 
     function onScanSuccess(decodedText) {
-      // Kunci: cegah scan kedua trigger
       scanner.pause(true);
 
-      // Efek feedback
       playBeep();
       vibrateStrong();
 
-      // Sembunyikan frame scanner, tampilkan frame hasil
       scannerWrapper.classList.add('hidden');
       resultValue.textContent = decodedText;
       resultFrame.classList.add('show');
-      setStatus('✓ Berhasil dipindai');
+      setStatus('✓ Berhasil Dipindai', true);
 
-      // Kirim balik ke jendela induk GAS
       try {
         if (window.opener && !window.opener.closed) {
           window.opener.postMessage(decodedText, '*');
@@ -429,7 +468,6 @@
         console.error('postMessage gagal:', e);
       }
 
-      // Tutup jendela setelah user lihat hasilnya (1.4 detik biar jelas)
       setTimeout(() => {
         window.close();
       }, 1400);
