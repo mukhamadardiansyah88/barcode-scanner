@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scanner Barcode/QR</title>
+  <style>
+    body { 
+      font-family: sans-serif; 
+      text-align: center; 
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    #qr-reader { 
+      width: 100%; 
+      max-width: 400px; 
+      margin: 0 auto;
+    }
+    .info {
+      margin-top: 15px;
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Arahkan kamera ke barcode/QR code</h2>
+  <div id="qr-reader"></div>
+  <p class="info">Setelah berhasil dipindai, data akan otomatis terisi ke kotak teks web app</p>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script>
+    function onScanSuccess(decodedText) {
+      // Kirim hasil pemindaian kembali ke jendela induk GAS
+      // Catatan: GAS dalam iframe, asal sebenarnya adalah googleusercontent.com
+      // Jadi di sini kita gunakan '*' sebagai targetOrigin, lalu verifikasi di sisi GAS
+      window.opener.postMessage(decodedText, '*');
+      
+      // Tutup jendela setelah berhasil dipindai (opsional)
+      window.close();
+    }
+
+    function onScanError(error) {
+      // Abaikan error pemindaian, jangan tampilkan pesan yang mengganggu
+    }
+
+    const scanner = new Html5QrcodeScanner("qr-reader", {
+      fps: 10,
+      qrbox: 250
+    });
+    scanner.render(onScanSuccess, onScanError);
+  </script>
+</body>
+</html>
