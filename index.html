@@ -398,15 +398,10 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    // ============================================================
-    // URL deployment /exec GAS Anda — sudah diisi
-    // ============================================================
-    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzMgotAMK8mLqR9-8z7K0BKVRP0czDU7jUMis2PuplwhL_muk9zfG_RMfaLzwGC-gxt/exec';
-    // ============================================================
-
-    // Baca ?session= dari URL
+    // ==== BACA ?return= DARI URL ====
+    // Kalau ada, artinya dibuka dari GAS → nanti redirect balik ke sana
     const params = new URLSearchParams(window.location.search);
-    const sessionId = params.get('session');
+    const returnUrl = params.get('return'); // URL Web App GAS
 
     const statusEl = document.getElementById('status');
     const scannerWrapper = document.getElementById('scannerWrapper');
@@ -449,54 +444,40 @@
       }
     }
 
-    // ==== Kirim hasil ke server GAS via fetch GET (no-cors) ====
-    async function kirimKeServer(barcode) {
-      // Fallback: kalau tidak ada session, pakai postMessage (mode lama/standalone)
-      if (!sessionId) {
-        try { if (window.opener) window.opener.postMessage(barcode, '*'); } catch (e) {}
-        try { window.parent.postMessage(barcode, '*'); } catch (e) {}
-        setTimeout(() => { try { window.close(); } catch (e) {} }, 300);
-        return;
-      }
-
-      try {
-        const url = WEB_APP_URL + '?action=submit&session=' +
-          encodeURIComponent(sessionId) + '&barcode=' + encodeURIComponent(barcode);
-        await fetch(url, { method: 'GET', mode: 'no-cors' });
-        // mode 'no-cors': respons tidak bisa dibaca, tapi server tetap menerima request
-        console.log('Terkirim ke server:', barcode);
-      } catch (e) {
-        console.error('Gagal kirim ke server:', e);
-      }
-
-      // Tampilkan "Terkirim" sebentar sebelum tutup
-      setStatus('✓ Terkirim', true);
-
-      // Tutup tab setelah 800ms biar user lihat feedback
-      setTimeout(() => { try { window.close(); } catch (e) {} }, 800);
-    }
-
     function onScanSuccess(decodedText) {
-      // Kunci: cegah scan kedua trigger
       scanner.pause(true);
-
-      // Efek feedback
       playBeep();
       vibrateStrong();
-
-      // Sembunyikan scanner, tampilkan hasil
       scannerWrapper.classList.add('hidden');
       resultValue.textContent = decodedText;
       resultFrame.classList.add('show');
       setStatus('✓ Berhasil Dipindai', true);
 
-      // Delay 1.4 detik biar user lihat hasil, lalu kirim ke server
-      setTimeout(() => {
-        kirimKeServer(decodedText);
-      }, 1400);
+      // ==== MODE BARU: redirect balik ke GAS dengan ?barcode= ====
+      if (returnUrl) {
+        setTimeout(() => {
+          const sep = returnUrl.includes('?') ? '&' : '?';
+          window.location.href = returnUrl + sep + 'barcode=' + encodeURIComponent(decodedText);
+        }, 1400);
+        return;
+      }
+
+      // ==== MODE LAMA: postMessage + close (standalone / iframe) ====
+      try { window.parent.postMessage(decodedText, '*'); } catch (e) {}
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.postMessage(decodedText, '*');
+        }
+      } catch (e) {}
+
+      if (window.opener) {
+        setTimeout(() => {
+          try { window.close(); } catch (e) {}
+        }, 1400);
+      }
     }
 
-    function onScanError() { /* silent */ }
+    function onScanError() {}
 
     const config = {
       fps: 20,
@@ -545,7 +526,6 @@
         return;
       }
 
-      // Laptop (1 kamera) atau tidak bisa enumerasi: coba "user" dulu
       if (count === 1 || count === -1) {
         try {
           await scanner.start(
@@ -573,7 +553,6 @@
         }
       }
 
-      // HP (≥2 kamera): pakai kamera belakang
       try {
         await scanner.start(
           { facingMode: { exact: "environment" } },
