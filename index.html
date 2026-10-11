@@ -65,7 +65,6 @@
     gap: 8px;
   }
 
-  /* Icon di atas judul */
   .app-icon {
     width: 72px;
     height: 72px;
@@ -100,7 +99,6 @@
     to { background-position: 300% center; }
   }
 
-  /* Subtitle — lebih terang */
   .subtitle {
     font-size: 13px;
     color: #b8b8d8;
@@ -189,7 +187,7 @@
   .status {
     margin-top: 20px;
     font-size: 16px;
-    color: #c8c8e8;               /* lebih terang dari sebelumnya */
+    color: #c8c8e8;
     text-align: center;
     letter-spacing: 1.2px;
     min-height: 22px;
@@ -199,8 +197,8 @@
   }
 
   .status.success {
-    font-size: 20px;              /* lebih besar */
-    color: #00ff9d;               /* hijau neon */
+    font-size: 20px;
+    color: #00ff9d;
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -416,6 +414,13 @@
       statusEl.innerHTML = text;
     }
 
+    // ==== "Bangunkan" motor getar saat pertama kali user sentuh ====
+    // Chrome Android kadang butuh gesture dulu sebelum vibrate diizinkan
+    window.addEventListener('touchstart', function wakeVibrate() {
+      try { navigator.vibrate && navigator.vibrate(1); } catch (e) {}
+      window.removeEventListener('touchstart', wakeVibrate);
+    }, { once: true });
+
     // ==== BUNYI BEEP KENCANG ====
     function playBeep() {
       try {
@@ -442,10 +447,13 @@
       }
     }
 
-    // ==== GETAR KUAT ====
+    // ==== GETAR MAKSIMAL (pola berlapis ~1.9 detik) ====
     function vibrateStrong() {
       if (navigator.vibrate) {
-        navigator.vibrate([150, 60, 150, 60, 250]);
+        navigator.vibrate([
+          300, 100, 300, 100, 500,
+          200, 100, 300
+        ]);
       }
     }
 
@@ -495,12 +503,7 @@
         Html5QrcodeSupportedFormats.UPC_E,
         Html5QrcodeSupportedFormats.DATA_MATRIX,
         Html5QrcodeSupportedFormats.PDF_417
-      ],
-      videoConstraints: {
-        facingMode: { exact: "environment" },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      }
+      ]
     };
 
     const scanner = new Html5Qrcode("qr-reader", {
@@ -509,26 +512,87 @@
       experimentalFeatures: config.experimentalFeatures
     });
 
-    scanner.start(
-      { facingMode: { exact: "environment" } },
-      config,
-      onScanSuccess,
-      onScanError
-    ).then(() => {
-      setStatus('Arahkan ke barcode / QR code');
-    }).catch(err => {
-      console.error('Kamera gagal:', err);
-      scanner.start(
-        { facingMode: "environment" },
-        config,
-        onScanSuccess,
-        onScanError
-      ).then(() => {
+    // ==== AUTO-DETECT KAMERA: laptop / HP / tanpa kamera ====
+    async function startScanner() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+          return startWithFacingMode();
+        }
+
+        // Minta izin kamera dulu (wajib, biar label device kebaca)
+        let stream;
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        } catch (permErr) {
+          setStatus('⚠ Izin kamera ditolak. Mohon izinkan akses kamera.');
+          return;
+        }
+
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const cameras = devices.filter(d => d.kind === 'videoinput');
+
+        stream.getTracks().forEach(t => t.stop());
+
+        if (cameras.length === 0) {
+          setStatus('⚠ Device ini tidak memiliki kamera');
+          return;
+        }
+
+        let targetCamera;
+        if (cameras.length === 1) {
+          // LAPTOP / device 1 kamera → pakai itu saja
+          targetCamera = cameras[0];
+        } else {
+          // HP / device ≥2 kamera → cari kamera belakang
+          targetCamera = cameras.find(c =>
+            /back|rear|environment|belakang/i.test(c.label)
+          );
+          if (!targetCamera) {
+            targetCamera = cameras[cameras.length - 1];
+          }
+        }
+
+        await scanner.start(
+          targetCamera.deviceId,
+          config,
+          onScanSuccess,
+          onScanError
+        );
         setStatus('Arahkan ke barcode / QR code');
-      }).catch(err2 => {
-        setStatus('⚠ Kamera tidak bisa diakses: ' + err2.message);
-      });
-    });
+
+      } catch (err) {
+        console.error('Auto-detect gagal:', err);
+        startWithFacingMode();
+      }
+    }
+
+    // Fallback: pakai facingMode
+    async function startWithFacingMode() {
+      try {
+        await scanner.start(
+          { facingMode: { exact: "environment" } },
+          config,
+          onScanSuccess,
+          onScanError
+        );
+        setStatus('Arahkan ke barcode / QR code');
+      } catch (err) {
+        try {
+          await scanner.start(
+            { facingMode: "environment" },
+            config,
+            onScanSuccess,
+            onScanError
+          );
+          setStatus('Arahkan ke barcode / QR code');
+        } catch (err2) {
+          setStatus('⚠ Kamera tidak bisa diakses: ' + err2.message);
+        }
+      }
+    }
+
+    // Mulai!
+    startScanner();
   </script>
 </body>
 </html>
