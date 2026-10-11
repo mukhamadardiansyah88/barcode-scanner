@@ -21,7 +21,6 @@
     position: relative;
   }
 
-  /* Background glow */
   body::before {
     content: '';
     position: fixed;
@@ -80,7 +79,6 @@
     letter-spacing: 1px;
   }
 
-  /* Scanner frame */
   .scanner-wrapper {
     position: relative;
     width: 100%;
@@ -112,7 +110,6 @@
     border: none !important;
   }
 
-  /* Override html5-qrcode default styles */
   #qr-reader video {
     border-radius: 17px !important;
     display: block !important;
@@ -120,23 +117,11 @@
     height: auto !important;
   }
 
-  #qr-reader__scan_region {
-    background: #0a0a14 !important;
-  }
+  #qr-reader__scan_region { background: #0a0a14 !important; }
+  #qr-reader__dashboard { display: none !important; }
+  #qr-reader__header_message { display: none !important; }
+  #qr-reader img[alt="Info icon"] { display: none !important; }
 
-  #qr-reader__dashboard {
-    display: none !important;
-  }
-
-  #qr-reader__header_message {
-    display: none !important;
-  }
-
-  #qr-reader img[alt="Info icon"] {
-    display: none !important;
-  }
-
-  /* Scan line animation */
   .scan-line {
     position: absolute;
     left: 10%;
@@ -155,7 +140,6 @@
     50% { top: 88%; opacity: 1; }
   }
 
-  /* Corner brackets */
   .corner {
     position: absolute;
     width: 30px;
@@ -172,7 +156,7 @@
 
   .status {
     margin-top: 20px;
-    font-size: 13px;
+    font-size: 14px;
     color: #8a8ab0;
     text-align: center;
     letter-spacing: 0.5px;
@@ -191,6 +175,50 @@
     text-shadow: 0 0 10px rgba(255, 77, 109, 0.6);
   }
 
+  /* ANGKA HASIL SCAN — FONT BESAR */
+  .result-box {
+    margin-top: 18px;
+    width: 100%;
+    padding: 16px 20px;
+    border-radius: 14px;
+    background: rgba(0, 255, 157, 0.06);
+    border: 2px solid rgba(0, 255, 157, 0.35);
+    box-shadow:
+      0 0 20px rgba(0, 255, 157, 0.25),
+      inset 0 0 15px rgba(0, 255, 157, 0.08);
+    display: none;
+    text-align: center;
+    animation: popIn 0.3s ease;
+  }
+
+  .result-box.show { display: block; }
+
+  @keyframes popIn {
+    0% { transform: scale(0.9); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .result-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #00ff9d;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    opacity: 0.8;
+  }
+
+  .result-value {
+    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    color: #00ff9d;
+    text-shadow:
+      0 0 10px rgba(0, 255, 157, 0.8),
+      0 0 20px rgba(0, 255, 157, 0.5);
+    word-break: break-all;
+    line-height: 1.2;
+  }
+
   .loader {
     display: inline-block;
     width: 14px;
@@ -207,12 +235,42 @@
     to { transform: rotate(360deg); }
   }
 
+  /* FOOTER — gradien 4 warna + garis kiri kanan */
+  .footer-wrap {
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .footer-line {
+    flex: 1;
+    height: 2px;
+    max-width: 60px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, #00e5ff, #b14aff, transparent);
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
+  }
+
+  .footer-line.right {
+    background: linear-gradient(90deg, transparent, #ff2ea6, #00e5ff, transparent);
+    box-shadow: 0 0 8px rgba(255, 46, 166, 0.6);
+  }
+
   .footer {
-    margin-top: 16px;
-    font-size: 10px;
-    color: #3a3a5a;
-    letter-spacing: 2px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
+    white-space: nowrap;
+    background: linear-gradient(90deg, #00e5ff, #b14aff, #ff2ea6, #00e5ff);
+    background-size: 300% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shine 4s linear infinite;
   }
 </style>
 </head>
@@ -238,23 +296,77 @@
       <span class="loader"></span>Menyiapkan kamera...
     </div>
 
-    <div class="footer">Powered by GAS × GitHub Pages</div>
+    <div class="result-box" id="resultBox">
+      <div class="result-label">Hasil Scan</div>
+      <div class="result-value" id="resultValue">—</div>
+    </div>
+
+    <div class="footer-wrap">
+      <div class="footer-line"></div>
+      <div class="footer">
+        Powered By Muhkamad Ardiansya · <span id="year"></span>
+      </div>
+      <div class="footer-line right"></div>
+    </div>
   </div>
 
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script>
+    // Auto-generate tahun dari sistem
+    document.getElementById('year').textContent = new Date().getFullYear();
+
     const statusEl = document.getElementById('status');
+    const resultBox = document.getElementById('resultBox');
+    const resultValue = document.getElementById('resultValue');
 
     function setStatus(text, type) {
       statusEl.className = 'status' + (type ? ' ' + type : '');
       statusEl.innerHTML = text;
     }
 
-    function onScanSuccess(decodedText, decodedResult) {
-      // Getar feedback di HP
-      if (navigator.vibrate) navigator.vibrate(100);
+    // ==== BUNYI "TIT" pakai Web Audio API ====
+    function playBeep() {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
 
-      setStatus('✓ Berhasil: ' + decodedText, 'success');
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1400, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1800, ctx.currentTime + 0.08);
+
+        gain.gain.setValueAtTime(0.001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.35, ctx.currentTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.16);
+
+        osc.onended = () => ctx.close();
+      } catch (e) {
+        console.warn('Beep gagal:', e);
+      }
+    }
+
+    // ==== GETAR pola tit-tit ====
+    function vibrate() {
+      if (navigator.vibrate) {
+        navigator.vibrate([80, 40, 80]);
+      }
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+      playBeep();
+      vibrate();
+
+      // Tampilkan angka besar
+      resultValue.textContent = decodedText;
+      resultBox.classList.add('show');
+
+      setStatus('✓ Berhasil dipindai', 'success');
 
       // Kirim balik ke jendela induk GAS
       try {
@@ -265,24 +377,22 @@
         console.error('postMessage gagal:', e);
       }
 
-      // Tutup jendela setelah delay singkat biar user lihat feedback
+      // Tutup jendela setelah user lihat hasilnya
       setTimeout(() => {
         window.close();
-      }, 700);
+      }, 900);
     }
 
     function onScanError(errorMessage) {
-      // Silent — error frame-by-frame normal, jangan spam UI
+      // Silent
     }
 
-    // Konfigurasi scanner: full frame, fps tinggi, kamera belakang
     const config = {
       fps: 20,
-      // qrbox tidak diset → full frame, lebih fleksibel untuk barcode 1D
       aspectRatio: 1.0,
       disableFlip: false,
       experimentalFeatures: {
-        useBarCodeDetectorIfSupported: true  // pakai BarcodeDetector API native kalau ada (Android Chrome)
+        useBarCodeDetectorIfSupported: true
       },
       formatsToSupport: [
         Html5QrcodeSupportedFormats.QR_CODE,
@@ -299,7 +409,7 @@
         Html5QrcodeSupportedFormats.PDF_417
       ],
       videoConstraints: {
-        facingMode: { exact: "environment" },  // paksa kamera belakang
+        facingMode: { exact: "environment" },
         width: { ideal: 1280 },
         height: { ideal: 720 }
       }
@@ -311,7 +421,6 @@
       experimentalFeatures: config.experimentalFeatures
     });
 
-    // Mulai scan langsung ke kamera belakang
     scanner.start(
       { facingMode: { exact: "environment" } },
       config,
@@ -321,7 +430,6 @@
       setStatus('Arahkan ke barcode / QR code');
     }).catch(err => {
       console.error('Kamera gagal:', err);
-      // Fallback: kalau "exact" gagal (beberapa HP), coba tanpa exact
       scanner.start(
         { facingMode: "environment" },
         config,
