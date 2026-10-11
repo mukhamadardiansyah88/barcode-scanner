@@ -398,6 +398,11 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
 
+    // ==== BACA ?return= DARI URL ====
+    // Kalau ada, artinya dibuka dari GAS → nanti redirect balik ke sana
+    const params = new URLSearchParams(window.location.search);
+    const returnUrl = params.get('return'); // URL Web App GAS
+
     const statusEl = document.getElementById('status');
     const scannerWrapper = document.getElementById('scannerWrapper');
     const resultFrame = document.getElementById('resultFrame');
@@ -448,20 +453,27 @@
       resultFrame.classList.add('show');
       setStatus('✓ Berhasil Dipindai', true);
 
-      // ==== Kirim hasil ke parent (kalau di-iframe GAS) ====
-      try { window.parent.postMessage(decodedText, '*'); } catch (e) {}
+      // ==== MODE BARU: redirect balik ke GAS dengan ?barcode= ====
+      if (returnUrl) {
+        setTimeout(() => {
+          const sep = returnUrl.includes('?') ? '&' : '?';
+          window.location.href = returnUrl + sep + 'barcode=' + encodeURIComponent(decodedText);
+        }, 1400);
+        return;
+      }
 
-      // ==== Kirim hasil ke opener (kalau dibuka popup/tab baru) ====
+      // ==== MODE LAMA: postMessage + close (standalone / iframe) ====
+      try { window.parent.postMessage(decodedText, '*'); } catch (e) {}
       try {
         if (window.opener && !window.opener.closed) {
           window.opener.postMessage(decodedText, '*');
         }
       } catch (e) {}
 
-      // ==== Tutup diri HANYA kalau dibuka sebagai popup ====
-      // Kalau di-iframe, parent (GAS) yang akan tutup overlay-nya
       if (window.opener) {
-        setTimeout(() => window.close(), 1400);
+        setTimeout(() => {
+          try { window.close(); } catch (e) {}
+        }, 1400);
       }
     }
 
