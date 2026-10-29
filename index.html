@@ -109,7 +109,6 @@
     text-shadow: 0 0 8px rgba(184, 184, 216, 0.3);
   }
 
-  /* ==== SCANNER FRAME ==== */
   .scanner-wrapper {
     position: relative;
     width: 100%;
@@ -183,7 +182,6 @@
   .corner.bl { bottom: 12px; left: 12px; border-right: none; border-top: none; border-radius: 0 0 0 12px; }
   .corner.br { bottom: 12px; right: 12px; border-left: none; border-top: none; border-radius: 0 0 12px 0; }
 
-  /* ==== STATUS ==== */
   .status {
     margin-top: 20px;
     font-size: 16px;
@@ -227,7 +225,6 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* ==== HASIL SCAN ==== */
   .result-frame {
     display: none;
     width: 100%;
@@ -317,6 +314,61 @@
     z-index: 1;
   }
 
+  /* ==== TOMBOL AKSI ==== */
+  .action-buttons {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  /* Tombol Kunjungi Link */
+  .btn-link {
+    background: linear-gradient(135deg, #00e5ff, #b14aff);
+    color: #ffffff;
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.5);
+    display: none;
+  }
+
+  .btn-link.show { display: block; }
+
+  .btn-link:active {
+    transform: scale(0.97);
+    box-shadow: 0 0 10px rgba(0, 229, 255, 0.7);
+  }
+
+  /* Tombol Reset */
+  .btn-reset {
+    background: transparent;
+    color: #00ff9d;
+    border: 2px solid #00ff9d;
+    box-shadow: 0 0 15px rgba(0, 255, 157, 0.3);
+  }
+
+  .btn-reset:active {
+    transform: scale(0.97);
+    background: rgba(0, 255, 157, 0.1);
+  }
+
   /* ==== FOOTER ==== */
   .footer-wrap {
     margin-top: 24px;
@@ -384,6 +436,12 @@
         </div>
         <div class="result-label">Hasil Scan</div>
         <div class="result-value" id="resultValue">—</div>
+
+        <!-- Tombol aksi -->
+        <div class="action-buttons">
+          <a href="#" class="btn btn-link" id="btnLink" target="_blank" rel="noopener">🔗 Kunjungi Link</a>
+          <button class="btn btn-reset" id="btnReset" onclick="resetScanner()">↻ Scan Lagi</button>
+        </div>
       </div>
     </div>
 
@@ -408,80 +466,102 @@
     const scannerWrapper = document.getElementById('scannerWrapper');
     const resultFrame = document.getElementById('resultFrame');
     const resultValue = document.getElementById('resultValue');
+    const btnLink = document.getElementById('btnLink');
 
     function setStatus(text, isSuccess) {
       statusEl.className = 'status' + (isSuccess ? ' success' : '');
       statusEl.innerHTML = text;
     }
 
-    // ==== "Bangunkan" motor getar saat pertama kali user sentuh ====
-    // Chrome Android kadang butuh gesture dulu sebelum vibrate diizinkan
     window.addEventListener('touchstart', function wakeVibrate() {
       try { navigator.vibrate && navigator.vibrate(1); } catch (e) {}
       window.removeEventListener('touchstart', wakeVibrate);
     }, { once: true });
 
-    // ==== BUNYI BEEP KENCANG ====
     function playBeep() {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         const ctx = new AudioCtx();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-
         osc.type = 'square';
         osc.frequency.setValueAtTime(1200, ctx.currentTime);
         osc.frequency.setValueAtTime(1800, ctx.currentTime + 0.06);
-
         gain.gain.setValueAtTime(0.0001, ctx.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.9, ctx.currentTime + 0.005);
         gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.28);
-
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start();
         osc.stop(ctx.currentTime + 0.3);
         osc.onended = () => ctx.close();
-      } catch (e) {
-        console.warn('Beep gagal:', e);
+      } catch (e) {}
+    }
+
+    function vibrateStrong() {
+      if (navigator.vibrate) {
+        navigator.vibrate([300, 100, 300, 100, 500, 200, 100, 300]);
       }
     }
 
-    // ==== GETAR MAKSIMAL (pola berlapis ~1.9 detik) ====
-    function vibrateStrong() {
-      if (navigator.vibrate) {
-        navigator.vibrate([
-          300, 100, 300, 100, 500,
-          200, 100, 300
-        ]);
+    // Cek apakah string adalah URL valid
+    function isURL(str) {
+      try {
+        const url = new URL(str);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+      } catch (e) {
+        return false;
       }
     }
 
     function onScanSuccess(decodedText) {
+      // Cegah scan dobel
       scanner.pause(true);
 
       playBeep();
       vibrateStrong();
 
+      // Sembunyikan scanner, tampilkan hasil
       scannerWrapper.classList.add('hidden');
       resultValue.textContent = decodedText;
       resultFrame.classList.add('show');
       setStatus('✓ Berhasil Dipindai', true);
 
-      try {
-        if (window.opener && !window.opener.closed) {
-          window.opener.postMessage(decodedText, '*');
-        }
-      } catch (e) {
-        console.error('postMessage gagal:', e);
+      // Tampilkan / sembunyikan tombol link
+      if (isURL(decodedText)) {
+        btnLink.href = decodedText;
+        btnLink.classList.add('show');
+      } else {
+        btnLink.href = '#';
+        btnLink.classList.remove('show');
       }
-
-      setTimeout(() => {
-        window.close();
-      }, 1400);
     }
 
     function onScanError() { /* silent */ }
+
+    // ==== FUNGSI RESET: mulai ulang scanner ====
+    async function resetScanner() {
+      // Sembunyikan hasil, tampilkan scanner
+      resultFrame.classList.remove('show');
+      scannerWrapper.classList.remove('hidden');
+      btnLink.classList.remove('show');
+      resultValue.textContent = '—';
+      setStatus('Menyiapkan kamera...');
+
+      try {
+        // Resume scanner yang di-pause
+        await scanner.resume();
+        setStatus('Arahkan ke barcode / QR code');
+      } catch (e) {
+        // Kalau resume gagal (scanner sudah stop), start ulang
+        try {
+          await scanner.clear();
+          await startScanner();
+        } catch (e2) {
+          setStatus('⚠ Gagal memulai ulang scanner: ' + e2.message);
+        }
+      }
+    }
 
     const config = {
       fps: 20,
@@ -512,62 +592,51 @@
       experimentalFeatures: config.experimentalFeatures
     });
 
-    // ==== AUTO-DETECT KAMERA: laptop / HP / tanpa kamera ====
-    async function startScanner() {
+    async function getCameraCount() {
       try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-          return startWithFacingMode();
-        }
-
-        // Minta izin kamera dulu (wajib, biar label device kebaca)
-        let stream;
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        } catch (permErr) {
-          setStatus('⚠ Izin kamera ditolak. Mohon izinkan akses kamera.');
-          return;
-        }
-
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return -1;
         const devices = await navigator.mediaDevices.enumerateDevices();
-        const cameras = devices.filter(d => d.kind === 'videoinput');
-
-        stream.getTracks().forEach(t => t.stop());
-
-        if (cameras.length === 0) {
-          setStatus('⚠ Device ini tidak memiliki kamera');
-          return;
-        }
-
-        let targetCamera;
-        if (cameras.length === 1) {
-          // LAPTOP / device 1 kamera → pakai itu saja
-          targetCamera = cameras[0];
-        } else {
-          // HP / device ≥2 kamera → cari kamera belakang
-          targetCamera = cameras.find(c =>
-            /back|rear|environment|belakang/i.test(c.label)
-          );
-          if (!targetCamera) {
-            targetCamera = cameras[cameras.length - 1];
-          }
-        }
-
-        await scanner.start(
-          targetCamera.deviceId,
-          config,
-          onScanSuccess,
-          onScanError
-        );
-        setStatus('Arahkan ke barcode / QR code');
-
-      } catch (err) {
-        console.error('Auto-detect gagal:', err);
-        startWithFacingMode();
+        return devices.filter(d => d.kind === 'videoinput').length;
+      } catch (e) {
+        return -1;
       }
     }
 
-    // Fallback: pakai facingMode
-    async function startWithFacingMode() {
+    async function startScanner() {
+      const count = await getCameraCount();
+
+      if (count === 0) {
+        setStatus('⚠ Device ini tidak memiliki kamera');
+        return;
+      }
+
+      if (count === 1 || count === -1) {
+        try {
+          await scanner.start(
+            { facingMode: "user" },
+            config,
+            onScanSuccess,
+            onScanError
+          );
+          setStatus('Arahkan ke barcode / QR code');
+          return;
+        } catch (e) {
+          try {
+            await scanner.start(
+              { facingMode: "environment" },
+              config,
+              onScanSuccess,
+              onScanError
+            );
+            setStatus('Arahkan ke barcode / QR code');
+            return;
+          } catch (e2) {
+            setStatus('⚠ Kamera tidak bisa diakses');
+            return;
+          }
+        }
+      }
+
       try {
         await scanner.start(
           { facingMode: { exact: "environment" } },
@@ -576,7 +645,7 @@
           onScanError
         );
         setStatus('Arahkan ke barcode / QR code');
-      } catch (err) {
+      } catch (e) {
         try {
           await scanner.start(
             { facingMode: "environment" },
@@ -585,13 +654,12 @@
             onScanError
           );
           setStatus('Arahkan ke barcode / QR code');
-        } catch (err2) {
-          setStatus('⚠ Kamera tidak bisa diakses: ' + err2.message);
+        } catch (e2) {
+          setStatus('⚠ Kamera tidak bisa diakses: ' + e2.message);
         }
       }
     }
 
-    // Mulai!
     startScanner();
   </script>
 </body>
